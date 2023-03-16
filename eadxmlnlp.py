@@ -119,7 +119,7 @@ if __name__ == "__main__":
 
 	for pair in GitHubSources:
 		if not os.path.isdir(pair[1]):
-			print("Cloning git archive", pair[1], "this may take a while...")
+			print(f"Cloning git-hosted archive into {pair[1]}, this may take a while...")
 			Repo.clone_from(pair[0], pair[1])
 		else:
 			print("Pulling current version of", pair[1] + "...")
