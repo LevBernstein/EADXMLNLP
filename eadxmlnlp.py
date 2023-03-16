@@ -62,7 +62,7 @@ def scrapeKeyElements(filename: str, elements: List[str], textFilePos: int) -> i
 		print(filename, "is not EAD XML. Moving on.")
 		return textFilePos
 	else:
-		if "<ead xmlns=" not in content:
+		if "<ead " not in content:
 			print(filename, "is not EAD XML. Moving on.")
 			return textFilePos
 		soup = BeautifulSoup(content, features="lxml")
