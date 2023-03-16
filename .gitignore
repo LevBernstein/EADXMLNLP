@@ -1,4 +1,6 @@
 *.txt
 *.xml
+NYU/*
+Rockefeller/*
+Heard/*
 !requirements.txt
-!toScrape.txt

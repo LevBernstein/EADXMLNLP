@@ -4,4 +4,5 @@ Lia Warner, Rohan Vora, Lev Bernstein
 
 ## Setup
 
-To install, run `pip3 install -r requirements.txt`.
+Requires Python version >= 3.8.10. To install required libraries, run
+`pip3 install -r requirements.txt`.

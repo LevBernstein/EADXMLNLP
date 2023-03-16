@@ -1,4 +1,0 @@
-https://github.com/NYULibraries/findingaids_eads/tree/master/bhs
-https://github.com/Ukrainian-History/finding-aids
-https://github.com/RockefellerArchiveCenter/data/tree/master/ead
-https://github.com/HeardLibrary/finding-aids/tree/master/ASpace/Finalized%20EADs
