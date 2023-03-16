@@ -38,7 +38,7 @@ def bulkDownloadXML(sourceList: Tuple[str]) -> None:
 		print("Source", source, "yielded", len(subList), "results")
 
 	for index, url in enumerate(resultList):
-		print("Downloading document #" + index + "...")
+		print("Downloading document #" + str(index) + "...")
 		r = requests.get(url).content
 		with open(f"{xmlDirectoryStructure}{index}.xml", "wb") as f:
 			f.write(r)
