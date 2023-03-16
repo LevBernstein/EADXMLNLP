@@ -36,7 +36,7 @@ textFilePos = 0
 def bulkDownloadXMLLOC(sourceList: Tuple[str]) -> None:
 	# Scrape EAD XML files from the library of congress website.
 	resultList = []
-	print("Fetching links to documents...")
+	print("Fetching links to LOC documents...")
 	for source in sourceList:
 		url = "https://findingaids.loc.gov/source/" + source
 		soup = BeautifulSoup(requests.get(url).content.decode("utf-8"), features="lxml")
@@ -45,7 +45,7 @@ def bulkDownloadXMLLOC(sourceList: Tuple[str]) -> None:
 		print("LOC Source", source, "yielded", len(subList), "results")
 
 	for index, url in enumerate(resultList):
-		print(f"Downloading document #{index}...")
+		print(f"Downloading LOC document #{index}...")
 		r = requests.get(url).content
 		with open(f"{LOCDirectory}LOC{index}.xml", "wb") as f:
 			f.write(r)
@@ -59,7 +59,7 @@ def scrapeKeyElements(filename: str, elements: List[str], textFilePos: int) -> i
 		with open(filename, "r") as f:
 			content = f.read()
 	except UnicodeDecodeError:
-		print(filename, "is not EAD XML. Moving on.")
+		print(filename, "uses utf-16. Moving on.")
 		return textFilePos
 	else:
 		if "<ead " not in content:
@@ -69,12 +69,13 @@ def scrapeKeyElements(filename: str, elements: List[str], textFilePos: int) -> i
 		words = " ".join(
 			" ".join([
 				re.sub(
-					' +', ' ', re.sub('\n+|\t+', ' ', i.p.getText().strip())
+					" +", " ", re.sub("\n+|\t+", " ", i.p.getText().strip())
 				) for i in soup.find_all(element) if i.p is not None
 			]) for element in elements
 		).casefold()
-	print("Dumping", filename + "...")
-	with open(f"{txtDirectoryStructure}{textFilePos}.txt", "w+") as f:
+	outputFilename = textFilePos + ".txt"
+	print(f"Writing to {outputFilename}...")
+	with open(f"{txtDirectoryStructure}{outputFilename}", "w+") as f:
 		f.write(words)
 	return textFilePos + 1
 
@@ -85,7 +86,9 @@ def getCollocations() -> None:
 		(3, TrigramCollocationFinder, TrigramAssocMeasures().likelihood_ratio),
 		(4, QuadgramCollocationFinder, QuadgramAssocMeasures().likelihood_ratio)
 	)
+	print("Building corpus...")
 	corpus = PlaintextCorpusReader(txtDirectoryStructure, ".*")
+	print("Lemmatizing...")
 	text = nltk.Text([lemmatizer.lemmatize(word) for word in corpus.words()])
 	# lemmatizer converts word forms into their base; for instance,
 	# running -> run; books -> book; etc. This can be disabled if desired,
