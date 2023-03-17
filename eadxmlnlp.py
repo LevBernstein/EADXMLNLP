@@ -1,7 +1,7 @@
 import os
 import random
 import re
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 
 import nltk
 nltk.download("punkt", quiet=True)
@@ -31,7 +31,7 @@ ignoredWords = {"draw", "drawing", "york"}
 stopWords = set(stopwords.words("english")).union(ignoredWords)
 lemmatizer = WordNetLemmatizer()
 textFilePos = 0
-
+averageTagLength = {tag: [0, 0] for tag in elements}
 
 def bulkDownloadXMLLOC(sourceList: Tuple[str]) -> None:
 	# Scrape EAD XML files from the library of congress website.
@@ -65,14 +65,22 @@ def scrapeKeyElements(filename: str, elements: List[str], textFilePos: int) -> i
 		if not ("<ead " in content or "eadheader" in content):
 			print(filename, "is not EAD XML. Moving on.")
 			return textFilePos
+		global averageTagLength
 		soup = BeautifulSoup(content, features="lxml")
-		words = " ".join(
-			" ".join([
-				re.sub(
-					" +", " ", re.sub("\n+|\t+", " ", i.p.getText().strip())
-				) for i in soup.find_all(element) if i.p is not None
-			]) for element in elements
-		).casefold()
+		words = ""
+		for element in elements:
+			elementList = soup.find_all(element)
+			strippedWord = ""
+			for i in elementList:
+				if i.p is not None:
+					text = i.p.getText()
+					processedWord = re.sub(
+						" +", " ", re.sub("\n+|\t+", " ", text.strip())
+					).casefold()
+					strippedWord += processedWord + " "
+					averageTagLength[element][0] += 1
+					averageTagLength[element][1] += len(processedWord)
+			words += strippedWord[:-1]
 	outputFilename = f"{textFilePos}.txt"
 	print(f"Writing to {outputFilename}...")
 	with open(f"{txtDirectoryStructure}{outputFilename}", "w+") as f:
@@ -110,6 +118,11 @@ def getCollocations() -> None:
 		print(finder.nbest(triplet[2], 100))
 
 
+def processAverageTagLength(tags: Dict[str, List[int]]) -> None:
+	for tag, pair in tags.items():
+		print(f"Average length of <p> in {tag} tag: {pair[1]/pair[0]}")
+
+
 if __name__ == "__main__":
 	for directory in (LOCDirectory, txtDirectoryStructure):
 		if not os.path.isdir(directory):
@@ -135,3 +148,5 @@ if __name__ == "__main__":
 					textFilePos = scrapeKeyElements(os.path.join(root, name), elements, textFilePos)
 
 	getCollocations()
+
+	processAverageTagLength(averageTagLength)
