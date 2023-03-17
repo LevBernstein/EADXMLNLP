@@ -62,7 +62,7 @@ def scrapeKeyElements(filename: str, elements: List[str], textFilePos: int) -> i
 		print(filename, "uses utf-16. Moving on.")
 		return textFilePos
 	else:
-		if "<ead " not in content:
+		if not ("<ead " in content or "eadheader" in content):
 			print(filename, "is not EAD XML. Moving on.")
 			return textFilePos
 		soup = BeautifulSoup(content, features="lxml")
