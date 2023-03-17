@@ -27,7 +27,7 @@ GitHubSources = (
 LOCDirectory = "./LOC/"
 txtDirectoryStructure = "./txtFiles/"
 elements = ["scopecontent", "processinfo", "arrangement"]
-ignoredWords = {"draw", "drawing"}
+ignoredWords = {"draw", "drawing", "york"}
 stopWords = set(stopwords.words("english")).union(ignoredWords)
 lemmatizer = WordNetLemmatizer()
 textFilePos = 0
@@ -54,7 +54,7 @@ def bulkDownloadXMLLOC(sourceList: Tuple[str]) -> None:
 def scrapeKeyElements(filename: str, elements: List[str], textFilePos: int) -> int:
 	# Scrape text from selected elements and output it to individual text files
 	# for further analysis
-	print("Scraping", filename + "...")
+	print("Reading", filename + "...")
 	try:
 		with open(filename, "r") as f:
 			content = f.read()
@@ -73,7 +73,7 @@ def scrapeKeyElements(filename: str, elements: List[str], textFilePos: int) -> i
 				) for i in soup.find_all(element) if i.p is not None
 			]) for element in elements
 		).casefold()
-	outputFilename = textFilePos + ".txt"
+	outputFilename = f"{textFilePos}.txt"
 	print(f"Writing to {outputFilename}...")
 	with open(f"{txtDirectoryStructure}{outputFilename}", "w+") as f:
 		f.write(words)
