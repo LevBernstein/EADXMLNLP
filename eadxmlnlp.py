@@ -31,7 +31,7 @@ ignoredWords = {"draw", "drawing", "york"}
 stopWords = set(stopwords.words("english")).union(ignoredWords)
 lemmatizer = WordNetLemmatizer()
 textFilePos = 0
-averageTagLength = {tag: [0, 0] for tag in elements}
+averageTagLength = {tag: [0, 0, 0] for tag in elements}
 
 def bulkDownloadXMLLOC(sourceList: Tuple[str]) -> None:
 	# Scrape EAD XML files from the library of congress website.
@@ -80,6 +80,7 @@ def scrapeKeyElements(filename: str, elements: List[str], textFilePos: int) -> i
 					strippedWord += processedWord + " "
 					averageTagLength[element][0] += 1
 					averageTagLength[element][1] += len(processedWord)
+					averageTagLength[element][2] += len(processedWord.split(" "))
 			words += strippedWord[:-1]
 	outputFilename = f"{textFilePos}.txt"
 	print(f"Writing to {outputFilename}...")
@@ -120,7 +121,9 @@ def getCollocations() -> None:
 
 def processAverageTagLength(tags: Dict[str, List[int]]) -> None:
 	for tag, pair in tags.items():
-		print(f"Average length of <p> in {tag} tag: {pair[1]/pair[0]}")
+		chars = round(pair[1]/pair[0])
+		words = round(pair[2]/pair[0])
+		print(f"Average length of <p> in {tag} tag: {chars} characters, {words} words")
 
 
 if __name__ == "__main__":
