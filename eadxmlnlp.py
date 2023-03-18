@@ -1,7 +1,7 @@
 import os
 import random
 import re
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 
 import nltk
 nltk.download("punkt", quiet=True)
@@ -22,16 +22,18 @@ LOCSources = "LCA", "AFC", "AD", "EUR", "GC", "GMD", "HISP", "MSS_A", "MI", "MUS
 GitHubSources = (
 	("https://github.com/NYULibraries/findingaids_eads.git", "./NYU"),
 	("https://github.com/RockefellerArchiveCenter/data.git", "./Rockefeller"),
-	("https://github.com/HeardLibrary/finding-aids.git", "./Heard")
+	("https://github.com/HeardLibrary/finding-aids.git", "./Heard"),
+	("https://github.com/Ukrainian-History/finding-aids.git", "./UkrHEC")
 )
-LOCDirectory = "./LOC/"
-txtDirectoryStructure = "./txtFiles/"
+repoDirectory = "./repos/"
+LOCDirectory = repoDirectory + "LOC/"
+txtDirectory = "./txtFiles/"
 elements = ["scopecontent", "processinfo", "arrangement"]
-ignoredWords = {"draw", "drawing", "york"}
+ignoredWords = {"draw", "drawing", "york", "rockefeller", "president", "correspondent"}
 stopWords = set(stopwords.words("english")).union(ignoredWords)
 lemmatizer = WordNetLemmatizer()
 textFilePos = 0
-
+averageTagLength = {tag: [0, 0, 0] for tag in elements}
 
 def bulkDownloadXMLLOC(sourceList: Tuple[str]) -> None:
 	# Scrape EAD XML files from the library of congress website.
@@ -65,17 +67,26 @@ def scrapeKeyElements(filename: str, elements: List[str], textFilePos: int) -> i
 		if not ("<ead " in content or "eadheader" in content):
 			print(filename, "is not EAD XML. Moving on.")
 			return textFilePos
+		global averageTagLength
 		soup = BeautifulSoup(content, features="lxml")
-		words = " ".join(
-			" ".join([
-				re.sub(
-					" +", " ", re.sub("\n+|\t+", " ", i.p.getText().strip())
-				) for i in soup.find_all(element) if i.p is not None
-			]) for element in elements
-		).casefold()
+		words = ""
+		for element in elements:
+			elementList = soup.find_all(element)
+			strippedWord = ""
+			for i in elementList:
+				if i.p is not None:
+					text = i.p.getText()
+					processedWord = re.sub(
+						" +", " ", re.sub("\n+|\t+", " ", text.strip())
+					).casefold()
+					strippedWord += processedWord + " "
+					averageTagLength[element][0] += 1
+					averageTagLength[element][1] += len(processedWord)
+					averageTagLength[element][2] += len(processedWord.split(" "))
+			words += strippedWord[:-1]
 	outputFilename = f"{textFilePos}.txt"
 	print(f"Writing to {outputFilename}...")
-	with open(f"{txtDirectoryStructure}{outputFilename}", "w+") as f:
+	with open(f"{txtDirectory}{outputFilename}", "w+") as f:
 		f.write(words)
 	return textFilePos + 1
 
@@ -87,7 +98,7 @@ def getCollocations() -> None:
 		(4, QuadgramCollocationFinder, QuadgramAssocMeasures().likelihood_ratio)
 	)
 	print("Building corpus...")
-	corpus = PlaintextCorpusReader(txtDirectoryStructure, ".*")
+	corpus = PlaintextCorpusReader(txtDirectory, ".*")
 	print("Lemmatizing...")
 	text = nltk.Text([lemmatizer.lemmatize(word) for word in corpus.words()])
 	# lemmatizer converts word forms into their base; for instance,
@@ -110,9 +121,18 @@ def getCollocations() -> None:
 		print(finder.nbest(triplet[2], 100))
 
 
+def processAverageTagLength(tags: Dict[str, List[int]]) -> None:
+	x = lambda a, b: round(a/(max(b, 1)))
+	for tag, group in tags.items():
+		chars = x(group[1], group[0])
+		words = x(group[2], group[0])
+		print(f"Average length of <p> in {tag} tag: {chars} characters, {words} words")
+
+
 if __name__ == "__main__":
-	for directory in (LOCDirectory, txtDirectoryStructure):
+	for directory in (repoDirectory, LOCDirectory, txtDirectory):
 		if not os.path.isdir(directory):
+			print("Creating", directory + "...")
 			os.mkdir(directory)
 
 	bulkDownloadXMLLOC(LOCSources)
@@ -121,17 +141,22 @@ if __name__ == "__main__":
 		textFilePos = scrapeKeyElements(LOCDirectory + f, elements, textFilePos)
 
 	for pair in GitHubSources:
-		if not os.path.isdir(pair[1]):
-			print(f"Cloning git-hosted archive into {pair[1]}, this may take a while...")
-			Repo.clone_from(pair[0], pair[1])
+		path = repoDirectory + pair[1]
+		if not os.path.isdir(path):
+			print(f"Cloning git-hosted archive into {path}, this may take a while...")
+			Repo.clone_from(pair[0], path)
 		else:
-			print("Pulling current version of", pair[1] + "...")
-			commit = Remote(Repo(pair[1]), "origin").fetch()[0]
+			print("Pulling current version of", path + "...")
+			commit = Remote(Repo(path), "origin").pull()[0]
 			print("Pulled commit", commit.commit.hexsha)
 
-		for root, dirs, files in os.walk(pair[1]):
+		for root, dirs, files in os.walk(path):
 			for name in files:
 				if name.endswith(".xml"):
 					textFilePos = scrapeKeyElements(os.path.join(root, name), elements, textFilePos)
 
+	print(textFilePos, "valid EAD XML files. Excluded words:", ", ".join(ignoredWords))
+
 	getCollocations()
+
+	processAverageTagLength(averageTagLength)
