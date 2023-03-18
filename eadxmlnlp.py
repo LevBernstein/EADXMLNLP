@@ -22,12 +22,13 @@ LOCSources = "LCA", "AFC", "AD", "EUR", "GC", "GMD", "HISP", "MSS_A", "MI", "MUS
 GitHubSources = (
 	("https://github.com/NYULibraries/findingaids_eads.git", "./NYU"),
 	("https://github.com/RockefellerArchiveCenter/data.git", "./Rockefeller"),
-	("https://github.com/HeardLibrary/finding-aids.git", "./Heard")
+	("https://github.com/HeardLibrary/finding-aids.git", "./Heard"),
+	("https://github.com/Ukrainian-History/finding-aids.git", "./UkrHEC")
 )
 LOCDirectory = "./LOC/"
 txtDirectoryStructure = "./txtFiles/"
-elements = ["scopecontent", "processinfo", "arrangement", "rockefeller", "president", "correspondent"]
-ignoredWords = {"draw", "drawing", "york"}
+elements = ["scopecontent", "processinfo", "arrangement"]
+ignoredWords = {"draw", "drawing", "york", "rockefeller", "president", "correspondent"}
 stopWords = set(stopwords.words("english")).union(ignoredWords)
 lemmatizer = WordNetLemmatizer()
 textFilePos = 0
@@ -120,9 +121,10 @@ def getCollocations() -> None:
 
 
 def processAverageTagLength(tags: Dict[str, List[int]]) -> None:
-	for tag, pair in tags.items():
-		chars = round(pair[1]/pair[0])
-		words = round(pair[2]/pair[0])
+	x = lambda a, b: round(a/(max(b, 1)))
+	for tag, group in tags.items():
+		chars = x(group[1], group[0])
+		words = x(group[2], group[0])
 		print(f"Average length of <p> in {tag} tag: {chars} characters, {words} words")
 
 
@@ -142,7 +144,7 @@ if __name__ == "__main__":
 			Repo.clone_from(pair[0], pair[1])
 		else:
 			print("Pulling current version of", pair[1] + "...")
-			commit = Remote(Repo(pair[1]), "origin").fetch()[0]
+			commit = Remote(Repo(pair[1]), "origin").pull()[0]
 			print("Pulled commit", commit.commit.hexsha)
 
 		for root, dirs, files in os.walk(pair[1]):
@@ -150,7 +152,7 @@ if __name__ == "__main__":
 				if name.endswith(".xml"):
 					textFilePos = scrapeKeyElements(os.path.join(root, name), elements, textFilePos)
 
-	print(textFilePos, "valid EAD XML files. Excluded words:", elements)
+	print(textFilePos, "valid EAD XML files. Excluded words:", ", ".join(ignoredWords))
 
 	getCollocations()
 
