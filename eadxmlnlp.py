@@ -25,8 +25,9 @@ GitHubSources = (
 	("https://github.com/HeardLibrary/finding-aids.git", "./Heard"),
 	("https://github.com/Ukrainian-History/finding-aids.git", "./UkrHEC")
 )
-LOCDirectory = "./LOC/"
-txtDirectoryStructure = "./txtFiles/"
+repoDirectory = "./repos/"
+LOCDirectory = repoDirectory + "LOC/"
+txtDirectory = "./txtFiles/"
 elements = ["scopecontent", "processinfo", "arrangement"]
 ignoredWords = {"draw", "drawing", "york", "rockefeller", "president", "correspondent"}
 stopWords = set(stopwords.words("english")).union(ignoredWords)
@@ -85,7 +86,7 @@ def scrapeKeyElements(filename: str, elements: List[str], textFilePos: int) -> i
 			words += strippedWord[:-1]
 	outputFilename = f"{textFilePos}.txt"
 	print(f"Writing to {outputFilename}...")
-	with open(f"{txtDirectoryStructure}{outputFilename}", "w+") as f:
+	with open(f"{txtDirectory}{outputFilename}", "w+") as f:
 		f.write(words)
 	return textFilePos + 1
 
@@ -97,7 +98,7 @@ def getCollocations() -> None:
 		(4, QuadgramCollocationFinder, QuadgramAssocMeasures().likelihood_ratio)
 	)
 	print("Building corpus...")
-	corpus = PlaintextCorpusReader(txtDirectoryStructure, ".*")
+	corpus = PlaintextCorpusReader(txtDirectory, ".*")
 	print("Lemmatizing...")
 	text = nltk.Text([lemmatizer.lemmatize(word) for word in corpus.words()])
 	# lemmatizer converts word forms into their base; for instance,
@@ -129,8 +130,9 @@ def processAverageTagLength(tags: Dict[str, List[int]]) -> None:
 
 
 if __name__ == "__main__":
-	for directory in (LOCDirectory, txtDirectoryStructure):
+	for directory in (repoDirectory, LOCDirectory, txtDirectory):
 		if not os.path.isdir(directory):
+			print("Creating", directory + "...")
 			os.mkdir(directory)
 
 	bulkDownloadXMLLOC(LOCSources)
@@ -139,15 +141,16 @@ if __name__ == "__main__":
 		textFilePos = scrapeKeyElements(LOCDirectory + f, elements, textFilePos)
 
 	for pair in GitHubSources:
-		if not os.path.isdir(pair[1]):
-			print(f"Cloning git-hosted archive into {pair[1]}, this may take a while...")
-			Repo.clone_from(pair[0], pair[1])
+		path = repoDirectory + pair[1]
+		if not os.path.isdir(path):
+			print(f"Cloning git-hosted archive into {path}, this may take a while...")
+			Repo.clone_from(pair[0], path)
 		else:
-			print("Pulling current version of", pair[1] + "...")
-			commit = Remote(Repo(pair[1]), "origin").pull()[0]
+			print("Pulling current version of", path + "...")
+			commit = Remote(Repo(path), "origin").pull()[0]
 			print("Pulled commit", commit.commit.hexsha)
 
-		for root, dirs, files in os.walk(pair[1]):
+		for root, dirs, files in os.walk(path):
 			for name in files:
 				if name.endswith(".xml"):
 					textFilePos = scrapeKeyElements(os.path.join(root, name), elements, textFilePos)
