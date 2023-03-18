@@ -26,7 +26,7 @@ GitHubSources = (
 )
 LOCDirectory = "./LOC/"
 txtDirectoryStructure = "./txtFiles/"
-elements = ["scopecontent", "processinfo", "arrangement"]
+elements = ["scopecontent", "processinfo", "arrangement", "rockefeller", "president", "correspondent"]
 ignoredWords = {"draw", "drawing", "york"}
 stopWords = set(stopwords.words("english")).union(ignoredWords)
 lemmatizer = WordNetLemmatizer()
@@ -149,6 +149,8 @@ if __name__ == "__main__":
 			for name in files:
 				if name.endswith(".xml"):
 					textFilePos = scrapeKeyElements(os.path.join(root, name), elements, textFilePos)
+
+	print(textFilePos, "valid EAD XML files. Excluded words:", elements)
 
 	getCollocations()
 
