@@ -1,7 +1,6 @@
-*.txt
+txtFiles/*
 *.xml
 NYU/*
 Rockefeller/*
 Heard/*
 UkrHEC/*
-!requirements.txt
