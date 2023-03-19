@@ -48,7 +48,7 @@ repoDirectory = "./repos/"
 LOCDirectory = repoDirectory + "LOC/"
 txtDirectory = "./txtFiles/"
 elements = ["scopecontent", "processinfo", "arrangement"]
-ignoredWords = {"draw", "drawing", "york", "rockefeller", "president", "correspondent", "united", "urban"}
+ignoredWords = {"draw", "drawing", "york", "rockefeller", "president", "correspondent", "united", "urban", "policy", "international"}
 stopWords = set(stopwords.words("english")).union(ignoredWords)
 lemmatizer = WordNetLemmatizer()
 textFilePos = 0
@@ -108,9 +108,9 @@ def scrapeKeyElements(filename: str, elements: List[str], textFilePos: int) -> i
 					averageTagLength[element][1] += len(processedWord)
 					averageTagLength[element][2] += len(processedWord.split(" "))
 			words += strippedWord[:-1]
-	outputFilename = f"{textFilePos}.txt"
+	outputFilename = f"{txtDirectory}{textFilePos}.txt"
 	logging.info(f"Writing to {outputFilename}...")
-	with open(f"{txtDirectory}{outputFilename}", "w+") as f:
+	with open(outputFilename, "w+") as f:
 		f.write(words)
 	return textFilePos + 1
 
