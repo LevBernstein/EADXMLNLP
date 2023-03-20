@@ -1,7 +1,9 @@
+import logging
 import os
 import random
 import re
 from typing import Dict, List, Tuple
+from sys import stdout
 
 import nltk
 nltk.download("punkt", quiet=True)
@@ -18,36 +20,58 @@ from bs4 import BeautifulSoup
 from git import Remote, Repo
 
 
+"""
+Global variables:
+	LOCSources: tuple of paths, each of which is appended to the Library of Congress URI.
+	GitHubSources: GitHub repos and the directory into which they will be downloaded.
+	repoDirectory: directory containing the above repos and the downloaded LOC files.
+	txtDirectory: directory containing txt files scraped from xml.
+	elements: tags containing <p> tags to scrape.
+	ignoredWords: set of words to ignore when gathering collocations.
+	stopWords: ignoredWords joined with a set of predefined stopWords that impart little meaning.
+	lemmatizer: predefined nltk lemmatizer utility.
+	textFilePos: tracking variable used for naming txt files stored in txtDirectory.
+	averageTagLength: dict containing data for each tag in elements related to average length.
+		Structued in the form tag: [# times this tag appears, total # characters stored
+		in this tag, total # words stored in this tag].
+	logLevel: level of logs to display in logging library. Anything higher than
+		INFO (for instance, logging.ERROR), means info-lvel messages will not display.
+"""
 LOCSources = "LCA", "AFC", "AD", "EUR", "GC", "GMD", "HISP", "MSS_A", "MI", "MUS", "PP", "RBC", "RS", "VHP"
 GitHubSources = (
-	("https://github.com/NYULibraries/findingaids_eads.git", "./NYU"),
-	("https://github.com/RockefellerArchiveCenter/data.git", "./Rockefeller"),
-	("https://github.com/HeardLibrary/finding-aids.git", "./Heard"),
-	("https://github.com/Ukrainian-History/finding-aids.git", "./UkrHEC")
+	("https://github.com/NYULibraries/findingaids_eads.git", "NYU"),
+	("https://github.com/RockefellerArchiveCenter/data.git", "Rockefeller"),
+	("https://github.com/HeardLibrary/finding-aids.git", "Heard"),
+	("https://github.com/Ukrainian-History/finding-aids.git", "UkrHEC")
 )
 repoDirectory = "./repos/"
 LOCDirectory = repoDirectory + "LOC/"
 txtDirectory = "./txtFiles/"
 elements = ["scopecontent", "processinfo", "arrangement"]
-ignoredWords = {"draw", "drawing", "york", "rockefeller", "president", "correspondent"}
+ignoredWords = {"draw", "drawing", "york", "rockefeller", "president", "correspondent", "united", "urban", "policy", "international"}
 stopWords = set(stopwords.words("english")).union(ignoredWords)
 lemmatizer = WordNetLemmatizer()
 textFilePos = 0
 averageTagLength = {tag: [0, 0, 0] for tag in elements}
+logLevel = logging.INFO
 
 def bulkDownloadXMLLOC(sourceList: Tuple[str]) -> None:
 	# Scrape EAD XML files from the library of congress website.
 	resultList = []
-	print("Fetching links to LOC documents...")
+	logging.info("Fetching links to LOC documents...")
 	for source in sourceList:
 		url = "https://findingaids.loc.gov/source/" + source
 		soup = BeautifulSoup(requests.get(url).content.decode("utf-8"), features="lxml")
-		subList = [j.attrs["href"] for j in [i.find_all("a")[0] for i in soup.body.find_all("em")]]
+		subList = [
+			j.attrs["href"] for j in [
+				i.find_all("a")[0] for i in soup.body.find_all("em")
+			]
+		]
 		resultList += subList
-		print("LOC Source", source, "yielded", len(subList), "results")
+		logging.info(f"LOC Source {source} yielded {len(subList)} results")
 
 	for index, url in enumerate(resultList):
-		print(f"Downloading LOC document #{index}...")
+		logging.info(f"Downloading LOC document #{index}...")
 		r = requests.get(url).content
 		with open(f"{LOCDirectory}LOC{index}.xml", "wb") as f:
 			f.write(r)
@@ -55,17 +79,17 @@ def bulkDownloadXMLLOC(sourceList: Tuple[str]) -> None:
 
 def scrapeKeyElements(filename: str, elements: List[str], textFilePos: int) -> int:
 	# Scrape text from selected elements and output it to individual text files
-	# for further analysis
-	print("Reading", filename + "...")
+	# for further analysis.
+	logging.info(f"Reading {filename}...")
 	try:
 		with open(filename, "r") as f:
 			content = f.read()
 	except UnicodeDecodeError:
-		print(filename, "uses utf-16. Moving on.")
+		logging.info(f"{filename} uses utf-16. Moving on.")
 		return textFilePos
 	else:
 		if not ("<ead " in content or "eadheader" in content):
-			print(filename, "is not EAD XML. Moving on.")
+			logging.info(f"{filename} is not EAD XML. Moving on.")
 			return textFilePos
 		global averageTagLength
 		soup = BeautifulSoup(content, features="lxml")
@@ -84,22 +108,23 @@ def scrapeKeyElements(filename: str, elements: List[str], textFilePos: int) -> i
 					averageTagLength[element][1] += len(processedWord)
 					averageTagLength[element][2] += len(processedWord.split(" "))
 			words += strippedWord[:-1]
-	outputFilename = f"{textFilePos}.txt"
-	print(f"Writing to {outputFilename}...")
-	with open(f"{txtDirectory}{outputFilename}", "w+") as f:
+	outputFilename = f"{txtDirectory}{textFilePos}.txt"
+	logging.info(f"Writing to {outputFilename}...")
+	with open(outputFilename, "w+") as f:
 		f.write(words)
 	return textFilePos + 1
 
 
 def getCollocations() -> None:
+	# Get list of common phrases across all examined documents.
 	collocationTuples = (
 		(2, BigramCollocationFinder, BigramAssocMeasures().likelihood_ratio),
 		(3, TrigramCollocationFinder, TrigramAssocMeasures().likelihood_ratio),
 		(4, QuadgramCollocationFinder, QuadgramAssocMeasures().likelihood_ratio)
 	)
-	print("Building corpus...")
+	logging.info("Building corpus...")
 	corpus = PlaintextCorpusReader(txtDirectory, ".*")
-	print("Lemmatizing...")
+	logging.info("Lemmatizing...")
 	text = nltk.Text([lemmatizer.lemmatize(word) for word in corpus.words()])
 	# lemmatizer converts word forms into their base; for instance,
 	# running -> run; books -> book; etc. This can be disabled if desired,
@@ -122,6 +147,7 @@ def getCollocations() -> None:
 
 
 def processAverageTagLength(tags: Dict[str, List[int]]) -> None:
+	# Calculate average length of each tag in terms of characters and words.
 	x = lambda a, b: round(a/(max(b, 1)))
 	for tag, group in tags.items():
 		chars = x(group[1], group[0])
@@ -130,9 +156,17 @@ def processAverageTagLength(tags: Dict[str, List[int]]) -> None:
 
 
 if __name__ == "__main__":
+	logging.basicConfig(
+		format="%(asctime)s: %(message)s",
+		datefmt="%m/%d %H:%M:%S",
+		level=logLevel,
+		stream=stdout,
+		force=True
+	)
+
 	for directory in (repoDirectory, LOCDirectory, txtDirectory):
 		if not os.path.isdir(directory):
-			print("Creating", directory + "...")
+			logging.info(f"Creating {directory}...")
 			os.mkdir(directory)
 
 	bulkDownloadXMLLOC(LOCSources)
@@ -142,13 +176,13 @@ if __name__ == "__main__":
 
 	for pair in GitHubSources:
 		path = repoDirectory + pair[1]
-		if not os.path.isdir(path):
-			print(f"Cloning git-hosted archive into {path}, this may take a while...")
+		if not os.path.isdir(path + "/.git"):
+			logging.info(f"Cloning git-hosted archive into {path}, this may take a while...")
 			Repo.clone_from(pair[0], path)
 		else:
-			print("Pulling current version of", path + "...")
+			logging.info(f"Pulling current version of {path}...")
 			commit = Remote(Repo(path), "origin").pull()[0]
-			print("Pulled commit", commit.commit.hexsha)
+			logging.info(f"Pulled commit {commit.commit.hexsha}")
 
 		for root, dirs, files in os.walk(path):
 			for name in files:
@@ -156,7 +190,5 @@ if __name__ == "__main__":
 					textFilePos = scrapeKeyElements(os.path.join(root, name), elements, textFilePos)
 
 	print(textFilePos, "valid EAD XML files. Excluded words:", ", ".join(ignoredWords))
-
 	getCollocations()
-
 	processAverageTagLength(averageTagLength)
