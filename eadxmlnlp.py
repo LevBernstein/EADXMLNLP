@@ -17,6 +17,7 @@ from nltk.stem import WordNetLemmatizer
 from nltk.tokenize import RegexpTokenizer
 import requests
 from bs4 import BeautifulSoup
+from dateutil import parser
 from git import Remote, Repo
 
 
@@ -36,6 +37,7 @@ Global variables:
 		in this tag, total # words stored in this tag].
 	logLevel: level of logs to display in logging library. Anything higher than
 		INFO (for instance, logging.ERROR), means info-lvel messages will not display.
+	dateList: list of archival years, obtained through the first date tag in each file.
 """
 LOCSources = "LCA", "AFC", "AD", "EUR", "GC", "GMD", "HISP", "MSS_A", "MI", "MUS", "PP", "RBC", "RS", "VHP"
 GitHubSources = (
@@ -54,6 +56,7 @@ lemmatizer = WordNetLemmatizer()
 textFilePos = 0
 averageTagLength = {tag: [0, 0, 0] for tag in elements}
 logLevel = logging.INFO
+dateList = []
 
 def bulkDownloadXMLLOC(sourceList: Tuple[str]) -> None:
 	# Scrape EAD XML files from the library of congress website.
@@ -62,11 +65,7 @@ def bulkDownloadXMLLOC(sourceList: Tuple[str]) -> None:
 	for source in sourceList:
 		url = "https://findingaids.loc.gov/source/" + source
 		soup = BeautifulSoup(requests.get(url).content.decode("utf-8"), features="lxml")
-		subList = [
-			j.attrs["href"] for j in [
-				i.find_all("a")[0] for i in soup.body.find_all("em")
-			]
-		]
+		subList = [i.find("a").attrs["href"] for i in soup.body.find_all("em")]
 		resultList += subList
 		logging.info(f"LOC Source {source} yielded {len(subList)} results")
 
@@ -79,7 +78,7 @@ def bulkDownloadXMLLOC(sourceList: Tuple[str]) -> None:
 
 def scrapeKeyElements(filename: str, elements: List[str], textFilePos: int) -> int:
 	# Scrape text from selected elements and output it to individual text files
-	# for further analysis.
+	# for further analysis. Also collects year from first instance of date tag.
 	logging.info(f"Reading {filename}...")
 	try:
 		with open(filename, "r") as f:
@@ -93,6 +92,11 @@ def scrapeKeyElements(filename: str, elements: List[str], textFilePos: int) -> i
 			return textFilePos
 		global averageTagLength
 		soup = BeautifulSoup(content, features="lxml")
+		try:
+			d = soup.find("date")
+			dateList.append(str(parser.parse(d.attrs["normal"] if "normal" in d.attrs else d.text).year))
+		except:
+			logging.info("No valid date in " + filename)
 		words = ""
 		for element in elements:
 			elementList = soup.find_all(element)
@@ -192,3 +196,6 @@ if __name__ == "__main__":
 	print(textFilePos, "valid EAD XML files. Excluded words:", ", ".join(ignoredWords))
 	getCollocations()
 	processAverageTagLength(averageTagLength)
+
+	with open("./dates.txt", "w") as f:
+		f.write("\n".join(i for i in dateList))
